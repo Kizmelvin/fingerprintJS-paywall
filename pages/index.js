@@ -11,7 +11,7 @@ export default function Home({ posts }) {
   useEffect(() => {
     if (posts.length) {
       const imgBuilder = imageUrlBuilder({
-        projectId: "dlwalt36",
+        projectId: process.env.NEXT_PUBLIC_PROJECT_ID,
         dataset: "production",
       });
       setReceivedPosts(
@@ -55,7 +55,7 @@ export default function Home({ posts }) {
 }
 export const getStaticProps = async (pageContext) => {
   const allPosts = encodeURIComponent(`*[ _type == "post"]`);
-  const url = `https://dlwalt36.api.sanity.io/v1/data/query/production?query=${allPosts}`;
+  const url = `https://${process.env.NEXT_PUBLIC_PROJECT_ID}.api.sanity.io/v1/data/query/production?query=${allPosts}`;
 
   const getPosts = await fetch(url).then((res) => res.json());
 

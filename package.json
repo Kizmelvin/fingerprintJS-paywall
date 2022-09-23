@@ -13,6 +13,7 @@
     "@sanity/block-content-to-react": "^3.0.0",
     "@sanity/image-url": "^1.0.1",
     "bootstrap": "^5.2.1",
+    "dotenv": "^16.0.2",
     "firebase": "^9.10.0",
     "next": "12.3.1",
     "react": "18.2.0",

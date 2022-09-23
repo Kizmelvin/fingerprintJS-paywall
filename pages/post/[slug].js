@@ -58,7 +58,7 @@ function Post({ title, body, image, slug }) {
   useEffect(() => {
     visitedTimes();
     const imgBuilder = imageUrlBuilder({
-      projectId: "dlwalt36",
+      projectId: process.env.NEXT_PUBLIC_PROJECT_ID,
       dataset: "production",
     });
     setImageUrl(imgBuilder.image(image));
@@ -118,7 +118,7 @@ function Post({ title, body, image, slug }) {
               blocks={body}
               serializers={serializers}
               imageOptions={{ w: 320, h: 240, fit: "max" }}
-              projectId={"dlwalt36"}
+              projectId={process.env.NEXT_PUBLIC_PROJECT_ID}
               dataset={"production"}
             />
           </div>
@@ -129,7 +129,7 @@ function Post({ title, body, image, slug }) {
 }
 export const getStaticPaths = async (pageContext) => {
   const particularPost = encodeURIComponent(`*[ _type == "post"]`);
-  const url = `https://dlwalt36.api.sanity.io/v1/data/query/production?query=${particularPost}`;
+  const url = `https://${process.env.NEXT_PUBLIC_PROJECT_ID}.api.sanity.io/v1/data/query/production?query=${particularPost}`;
 
   const postData = await fetch(url).then((res) => res.json());
   const postItem = postData.result;
@@ -149,7 +149,7 @@ export const getStaticProps = async ({ params }) => {
   const particularPost = encodeURIComponent(
     `*[ _type == "post" && slug.current == "${params.slug}"]`
   );
-  const url = `https://dlwalt36.api.sanity.io/v1/data/query/production?query=${particularPost}`;
+  const url = `https://${process.env.NEXT_PUBLIC_PROJECT_ID}.api.sanity.io/v1/data/query/production?query=${particularPost}`;
 
   const postData = await fetch(url).then((res) => res.json());
   const postItem = postData.result[0];
