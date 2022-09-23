@@ -2,73 +2,56 @@ const BlockContent = require("@sanity/block-content-to-react");
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Modal from "react-bootstrap/Modal";
 import imageUrlBuilder from "@sanity/image-url";
 import styles from "../../styles/Home.module.css";
 import { useVisitorData } from "@fingerprintjs/fingerprintjs-pro-react";
 import {
   updateDoc,
   doc,
-  collection,
   arrayUnion,
-  getDocs,
-  addDoc,
   setDoc,
+  getDocFromServer,
 } from "firebase/firestore";
 import { db } from "../../Utils";
+import Link from "next/link";
 
 function Post({ title, body, image, slug }) {
-  const [content, setContent] = useState("");
-  const [visitorId, setVisitorId] = useState();
   const { isLoading, getData } = useVisitorData({ immediate: true });
   const [modal, setModal] = useState(false);
+  const [updated, setUpdated] = useState(false);
+  const [visitTimes, setVisitTimes] = useState(0);
 
   const [imageUrl, setImageUrl] = useState();
   const router = useRouter();
 
   const visitedTimes = async () => {
     await getData().then(async (visitor) => {
-      // console.log(visitor);
       const visited = {
         visitorId: visitor.visitorId,
         visitedPostId: slug,
       };
 
       const { visitorId, visitedPostId } = visited;
-      // console.log(visitedPostId);
 
       const visitorRef = doc(db, "visitors", `${visitorId}`);
 
-      const Visitors = await getDocs(collection(db, "visitors"));
+      const documentSnap = await getDocFromServer(visitorRef);
 
-      // if (Visitors.length === 0) {
-      //   await setDoc(doc(visitorRef, `${visitorId}`), {
-      //     postsVisited: [visitedPostId],
-      //   });
-      // } else {
-      //   await addDoc(visitorRef, {
-      //     postsVisited: arrayUnion(`${visitedPostId}`),
-      //   });
-      // }
-
-      Visitors.forEach(async (visitor) => {
-        console.log(visitor.data());
-        if (visitor.exists()) {
-          // console.log(visitor.data(), visitor.data().visitedPosts.length);
-          updateDoc(visitorRef, {
-            postsVisited: arrayUnion(`${visitedPostId}`),
-          });
-        } else {
-          await setDoc(visitorRef, {
-            postsVisited: arrayUnion(`${visitedPostId}`),
-          });
+      if (documentSnap.exists()) {
+        await updateDoc(visitorRef, {
+          visitedPosts: arrayUnion(visitedPostId),
+        });
+        setUpdated(true);
+        if (documentSnap.data().visitedPosts.length >= 3) {
+          setModal(true);
         }
-        // if (
-        //   visitor.data().visitedPosts.length > 3 ||
-        //   visitor.data().visitedPosts.length === 3
-        // ) {
-        //   setModal(true);
-        // }
-      });
+        setVisitTimes(documentSnap.data().visitedPosts.length);
+      } else {
+        setDoc(visitorRef, {
+          visitedPosts: visitedPostId,
+        });
+      }
     });
   };
 
@@ -79,7 +62,7 @@ function Post({ title, body, image, slug }) {
       dataset: "production",
     });
     setImageUrl(imgBuilder.image(image));
-  }, [image]);
+  }, [image, updated, modal]);
 
   const serializers = {
     types: {
@@ -95,58 +78,89 @@ function Post({ title, body, image, slug }) {
 
   return (
     <>
-      <div className={styles.postItem}>
-        <div className={styles.postNav} onClick={() => router.push("/")}>
-          &#x2190;
-        </div>
-        {imageUrl && <img src={imageUrl} alt={title} />}
-        <div>
-          <h1>
-            <strong>{title}</strong>
-          </h1>
-        </div>
+      {visitTimes >= 3 && modal ? (
+        <Modal
+          centered
+          show={modal}
+          onHide={() => window.location.href("/")}
+          animation={true}
+        >
+          <Modal.Header>
+            <Modal.Title>Subscribe With Us Today!</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            Oops! Seems you have exceeded your allocated free articles. You can
+            get back by subscribing
+          </Modal.Body>
+          <Modal.Footer>
+            <Link role="button" className="btn btn-secondary" href="/">
+              Home
+            </Link>
+            <Link className="btn btn-secondary" href="#">
+              Subscribe
+            </Link>
+          </Modal.Footer>
+        </Modal>
+      ) : (
+        <div className={styles.postItem}>
+          <div className={styles.postNav} onClick={() => router.push("/")}>
+            &#x2190;
+          </div>
+          {imageUrl && <img src={imageUrl} alt={title} />}
+          <div>
+            <h1>
+              <strong>{title}</strong>
+            </h1>
+          </div>
 
-        <div className={styles.postBody}>
-          <BlockContent
-            blocks={body}
-            serializers={serializers}
-            imageOptions={{ w: 320, h: 240, fit: "max" }}
-            projectId={"dlwalt36"}
-            dataset={"production"}
-          />
+          <div className={styles.postBody}>
+            <BlockContent
+              blocks={body}
+              serializers={serializers}
+              imageOptions={{ w: 320, h: 240, fit: "max" }}
+              projectId={"dlwalt36"}
+              dataset={"production"}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
-export const getServerSideProps = async (pageContext) => {
-  const pageSlug = pageContext.query.slug;
-  if (!pageSlug) {
-    return {
-      notFound: true,
-    };
-  }
+export const getStaticPaths = async (pageContext) => {
+  const particularPost = encodeURIComponent(`*[ _type == "post"]`);
+  const url = `https://dlwalt36.api.sanity.io/v1/data/query/production?query=${particularPost}`;
+
+  const postData = await fetch(url).then((res) => res.json());
+  const postItem = postData.result;
+
+  const paths = postItem.map((post) => ({
+    params: { slug: post.slug.current },
+  }));
+  console.log(paths);
+  return {
+    paths,
+    fallback: false,
+  };
+  //}
+};
+
+export const getStaticProps = async ({ params }) => {
   const particularPost = encodeURIComponent(
-    `*[ _type == "post" && slug.current == "${pageSlug}" ]`
+    `*[ _type == "post" && slug.current == "${params.slug}"]`
   );
   const url = `https://dlwalt36.api.sanity.io/v1/data/query/production?query=${particularPost}`;
 
   const postData = await fetch(url).then((res) => res.json());
   const postItem = postData.result[0];
-  // console.log(postItem);
-  if (!postItem) {
-    return {
-      notFound: true,
-    };
-  } else {
-    return {
-      props: {
-        title: postItem.title,
-        image: postItem.mainImage,
-        body: postItem.body,
-        slug: postItem.slug.current,
-      },
-    };
-  }
+
+  return {
+    props: {
+      title: postItem.title,
+      body: postItem.body,
+      image: postItem.mainImage,
+      slug: postItem.slug.current,
+    },
+  };
 };
 export default Post;

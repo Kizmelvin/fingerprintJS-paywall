@@ -1,11 +1,13 @@
+import styles from "../styles/Home.module.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import styles from "../styles/Home.module.css";
+
 import imageUrlBuilder from "@sanity/image-url";
 
 export default function Home({ posts }) {
   const [receivedPosts, setReceivedPosts] = useState([]);
   const router = useRouter();
+
   useEffect(() => {
     if (posts.length) {
       const imgBuilder = imageUrlBuilder({
@@ -20,14 +22,14 @@ export default function Home({ posts }) {
           };
         })
       );
-      //console.log(receivedPosts);
     } else {
       setReceivedPosts([]);
     }
   }, [posts]);
+
   return (
     <div className={styles.main}>
-      <h1 onClick={() => console.log(receivedPosts)}>Welcome to Blog Page</h1>
+      <h1>Welcome to Blog Page</h1>
       <div className={styles.feed}>
         {receivedPosts.length ? (
           receivedPosts.map((post, index) => (
@@ -51,12 +53,11 @@ export default function Home({ posts }) {
     </div>
   );
 }
-export const getServerSideProps = async (pageContext) => {
+export const getStaticProps = async (pageContext) => {
   const allPosts = encodeURIComponent(`*[ _type == "post"]`);
   const url = `https://dlwalt36.api.sanity.io/v1/data/query/production?query=${allPosts}`;
 
   const getPosts = await fetch(url).then((res) => res.json());
-  //console.log(getPosts);
 
   if (!getPosts.result || !getPosts.result.length) {
     return {
